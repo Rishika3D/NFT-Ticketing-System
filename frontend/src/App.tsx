@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { Routes, Route, useNavigate } from 'react-router-dom';
+import { StoreProvider, useStore } from './lib/store'; // 1. Import Store
 import { Header } from './components/Header';
 import { LandingPage } from './components/LandingPage';
 import { EventList } from './components/EventList';
@@ -8,93 +10,85 @@ import { MintConfirmation } from './components/MintConfirmation';
 import { Profile } from './components/Profile';
 import { SignIn } from './components/SignIn';
 
-type Screen = 'landing' | 'events' | 'event-details' | 'wallet' | 'mint-confirm' | 'profile' | 'signin';
-
-export default function App() {
-  const [currentScreen, setCurrentScreen] = useState<Screen>('landing');
-  const [isWalletConnected, setIsWalletConnected] = useState(false);
-
-  const handleNavigate = (screen: Screen) => {
-    setCurrentScreen(screen);
-  };
-
-  const handleWalletConnect = () => {
-    if (!isWalletConnected) {
-      setCurrentScreen('wallet');
-    }
-  };
+// 2. Create an inner component to handle the logic
+function AppContent() {
+  const { isAuthenticated } = useStore(); // Use global state instead of local useState
+  const navigate = useNavigate();
+  
+  // We can keep a local state for the specific event selected, 
+  // so we know which one to show on the Details page.
+  const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
 
   const handleConnect = () => {
-    setIsWalletConnected(true);
-    setCurrentScreen('events');
+    // The actual login logic is handled inside the WalletConnect/SignIn components
+    // via the useStore() hook. We just need to navigate.
+    navigate('/events');
   };
 
-  const handleMint = () => {
-    if (isWalletConnected) {
-      setCurrentScreen('mint-confirm');
-    } else {
-      setCurrentScreen('wallet');
-    }
-  };
-
-  const handleSignIn = () => {
-    setCurrentScreen('signin');
-  };
-
-  const handleEmailSignIn = () => {
-    setIsWalletConnected(true);
-    setCurrentScreen('events');
+  const handleEventSelect = (id: number) => {
+    setSelectedEventId(id);
+    navigate('/event-details');
   };
 
   return (
     <div className="min-h-screen bg-white">
+      {/* Header with Global Auth State */}
       <Header
-        currentScreen={currentScreen}
-        onNavigate={handleNavigate}
-        isWalletConnected={isWalletConnected}
-        onWalletConnect={handleWalletConnect}
+        currentScreen="dynamic"
+        onNavigate={(screen) => navigate(`/${screen === 'landing' ? '' : screen}`)}
+        isWalletConnected={isAuthenticated} 
+        onWalletConnect={() => navigate('/wallet')}
       />
 
-      {currentScreen === 'landing' && (
-        <LandingPage onNavigate={handleNavigate} />
-      )}
+      <Routes>
+        <Route path="/" element={<LandingPage onNavigate={(screen) => navigate(`/${screen === 'landing' ? '' : screen}`)} />} />
+        
+        <Route path="/signin" element={
+          <SignIn 
+            onWalletConnect={() => navigate('/wallet')}
+            onEmailSignIn={handleConnect}
+            onBack={() => navigate('/')}
+          />
+        } />
 
-      {currentScreen === 'signin' && (
-        <SignIn
-          onWalletConnect={handleWalletConnect}
-          onEmailSignIn={handleEmailSignIn}
-          onBack={() => handleNavigate('landing')}
-        />
-      )}
+        <Route path="/events" element={
+          <EventList onEventSelect={handleEventSelect} />
+        } />
+        
+        {/* Pass the selected ID to EventDetails if needed, or default to first event */}
+        <Route path="/event-details" element={
+          <EventDetails 
+            eventId={selectedEventId || 1}
+            onBack={() => navigate('/events')} 
+            onMint={() => navigate(isAuthenticated ? '/mint-confirm' : '/wallet')} 
+          />
+        } />
 
-      {currentScreen === 'events' && (
-        <EventList onEventSelect={() => handleNavigate('event-details')} />
-      )}
+        <Route path="/wallet" element={
+          <WalletConnect 
+            onConnect={handleConnect} 
+            onBack={() => navigate('/')} 
+          />
+        } />
 
-      {currentScreen === 'event-details' && (
-        <EventDetails
-          onBack={() => handleNavigate('events')}
-          onMint={handleMint}
-        />
-      )}
+        <Route path="/mint-confirm" element={
+          <MintConfirmation 
+            onViewProfile={() => navigate('/profile')} 
+            onBackToEvents={() => navigate('/events')} 
+          />
+        } />
 
-      {currentScreen === 'wallet' && (
-        <WalletConnect
-          onConnect={handleConnect}
-          onBack={() => handleNavigate('landing')}
-        />
-      )}
-
-      {currentScreen === 'mint-confirm' && (
-        <MintConfirmation
-          onViewProfile={() => handleNavigate('profile')}
-          onBackToEvents={() => handleNavigate('events')}
-        />
-      )}
-
-      {currentScreen === 'profile' && (
-        <Profile onNavigate={handleNavigate} />
-      )}
+        <Route path="/profile" element={<Profile onNavigate={(screen) => navigate(`/${screen}`)} />} />
+      </Routes>
     </div>
+  );
+}
+
+// 3. Wrap the App in the StoreProvider
+export default function App() {
+  return (
+    <StoreProvider>
+      <AppContent />
+    </StoreProvider>
   );
 }
