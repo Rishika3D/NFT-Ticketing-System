@@ -1,4 +1,4 @@
-import { ticketHandler } from "../controllers/booking.controller";
+import { ticketHandler } from "../controllers/booking.controller.js";
 import express from "express";
 
 const router= express.Router();

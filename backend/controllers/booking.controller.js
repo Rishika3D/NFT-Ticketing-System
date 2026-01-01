@@ -1,21 +1,31 @@
-import { bookSeats } from "../services/booking.service"
+import { bookSeats } from "../services/booking.service.js";
 
-export const ticketHandler = async( req , res)=>{
-   try{ 
-    const {eventId, seatIds}= req.body;
-    const userId= req.user?.id || "test_user";
+export const ticketHandler = async (req, res) => {
+  try {
+    const { eventId, seatIds } = req.body;
 
-    const result= await bookSeats(userId,eventId, seatIds );
-
-    res.status(200).json({
-        success: true,
-        data: result
-    })
-}catch(err){
-    res.status(400).json({
+    if (!eventId || !seatIds?.length) {
+      return res.status(400).json({
         success: false,
-        data: err.message
-    })
-    console.log(err);
-}
-}
+        message: "eventId and seatIds are required"
+      });
+    }
+
+    // temporary user (replace with auth later)
+    const userId = req.user?.id ?? "anonymous_user";
+
+    const result = await bookSeats(userId, eventId, seatIds);
+
+    return res.status(200).json({
+      success: true,
+      data: result
+    });
+  } catch (err) {
+    console.error(err);
+
+    return res.status(500).json({
+      success: false,
+      message: err.message || "Booking failed"
+    });
+  }
+};
