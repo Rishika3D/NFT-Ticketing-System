@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.20;
 
-contract TicketSystem {
+import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+
+contract TicketSystem is ERC721, Ownable {
+
     struct Event {
         uint256 id;
         string name;
@@ -13,24 +17,31 @@ contract TicketSystem {
         bool exists;
     }
 
-    mapping(uint256 => Event) public events;
-    mapping(uint256 => uint256) public ticketToEvent;
-    mapping(uint256 => address) public ticketOwner;
-
     uint256 public nextEventId = 1;
     uint256 public nextTicketId = 1;
 
-    event EventCreated(uint256 indexed eventId, string name, address indexed organizer);
-    event TicketPurchased(uint256 indexed eventId, address indexed buyer, uint256 ticketId);
+    mapping(uint256 => Event) public events;
+    mapping(uint256 => uint256) public ticketToEvent;
+    mapping(uint256 => bool) public ticketUsed;
 
-    // Create new event
+    event EventCreated(uint256 indexed eventId, string name, address organizer);
+    event TicketMinted(uint256 indexed eventId, uint256 indexed tokenId, address buyer);
+    event TicketUsed(uint256 indexed tokenId);
+
+    // ✅ FIX 1: Ownable now needs initialOwner
+    constructor() ERC721("EventTicket", "ETIX") Ownable(msg.sender) {}
+
+    // ------------------------
+    // CREATE EVENT
+    // ------------------------
     function createEvent(
         string memory _name,
         uint256 _price,
         uint256 _totalTickets,
         string memory _metadataURI
-    ) public {
-        require(_totalTickets > 0, "Total tickets must be greater than 0");
+    ) external {
+        require(_totalTickets > 0, "Invalid ticket count");
+        require(_price > 0, "Price must be > 0");
 
         events[nextEventId] = Event({
             id: nextEventId,
@@ -47,44 +58,74 @@ contract TicketSystem {
         nextEventId++;
     }
 
-    // Buy a ticket for an existing event
-    function buyTicket(uint256 _eventId) public payable {
+    // ------------------------
+    // BUY TICKET (MINT NFT)
+    // ------------------------
+    function buyTicket(uint256 _eventId) external payable {
         Event storage e = events[_eventId];
-        require(e.exists, "Event does not exist");
-        require(e.sold < e.totalTickets, "All tickets sold out");
-        require(msg.value == e.price, "Incorrect payment amount");
 
+        require(e.exists, "Event does not exist");
+        require(e.sold < e.totalTickets, "Tickets sold out");
+        require(msg.value == e.price, "Incorrect ETH");
+
+        uint256 tokenId = nextTicketId++;
+
+        _safeMint(msg.sender, tokenId);
+        ticketToEvent[tokenId] = _eventId;
         e.sold++;
 
-        ticketToEvent[nextTicketId] = _eventId;
-        ticketOwner[nextTicketId] = msg.sender;
-
-        emit TicketPurchased(_eventId, msg.sender, nextTicketId);
-
-        nextTicketId++;
+        emit TicketMinted(_eventId, tokenId, msg.sender);
 
         (bool success, ) = e.organizer.call{value: msg.value}("");
-        require(success, "Payment transfer failed");
+        require(success, "Payment failed");
     }
 
-    // Organizer can withdraw event funds (optional if you don’t want instant payout)
-    function withdrawFunds(uint256 _eventId) public {
-        Event storage e = events[_eventId];
-        require(e.exists, "Event not found");
-        require(msg.sender == e.organizer, "Not organizer");
-
-        uint256 balance = e.sold * e.price;
-        e.sold = 0; // reset sold counter if you want to prevent re-withdraw
-
-        (bool success, ) = e.organizer.call{value: balance}("");
-        require(success, "Withdraw failed");
+    // ------------------------
+    // METADATA
+    // ------------------------
+    function tokenURI(uint256 tokenId) public view override returns (string memory) {
+        require(_ownerOf(tokenId) != address(0), "Token does not exist");
+        return events[ticketToEvent[tokenId]].metadataURI;
     }
 
-    // View function: check ticket owner
-    function getTicketOwner(uint256 _ticketId) public view returns (address) {
-        return ticketOwner[_ticketId];
+    // ------------------------
+    // VERIFY & USE TICKET
+    // ------------------------
+    function verifyTicket(uint256 tokenId) external view returns (bool) {
+        return _ownerOf(tokenId) != address(0) && !ticketUsed[tokenId];
     }
 
-    // Fallback in case ETH sent directly
-    receive() external payable {}
+    function useTicket(uint256 tokenId) external {
+        require(_ownerOf(tokenId) != address(0), "Invalid ticket");
+        require(!ticketUsed[tokenId], "Ticket already used");
+
+        uint256 eventId = ticketToEvent[tokenId];
+        require(msg.sender == events[eventId].organizer, "Only organizer");
+
+        ticketUsed[tokenId] = true;
+        emit TicketUsed(tokenId);
+    }
+
+    // ------------------------
+    // ✅ FIX 2: NEW OZ v5 TRANSFER HOOK
+    // ------------------------
+    function _update(
+        address to,
+        uint256 tokenId,
+        address auth
+    ) internal override returns (address) {
+
+        address from = _ownerOf(tokenId);
+
+        // block transfers AFTER usage (but allow minting)
+        if (from != address(0)) {
+            require(!ticketUsed[tokenId], "Used ticket cannot be transferred");
+        }
+
+        return super._update(to, tokenId, auth);
+    }
+
+    receive() external payable {
+        revert("Direct ETH not accepted");
+    }
 }
