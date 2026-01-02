@@ -4,6 +4,7 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import React from 'react';
 import { ethers } from 'ethers'; // Import ethers
 
 interface SignInProps {

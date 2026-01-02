@@ -1,18 +1,35 @@
 import { motion } from 'motion/react';
 import { Calendar, MapPin, Users, Share2, Heart, ArrowLeft, Check } from 'lucide-react';
+import React from 'react';
 import { Button } from './ui/button';
-import { Badge } from './ui/badge';
-import { ImageWithFallback } from './figma/ImageWithFallback';
+import { useState } from 'react';
+import { EVENTS_DATA } from '../data';
+import { CheckoutModal } from './CheckoutModal';
+import { useParams } from 'react-router-dom';
 
 interface EventDetailsProps {
+  eventId?: number;
   onBack: () => void;
   onMint: () => void;
 }
 
-export function EventDetails({ onBack, onMint }: EventDetailsProps) {
+export function EventDetails({ eventId, onBack, onMint }: EventDetailsProps) {
+  // 1. Get ID from URL if not passed as prop
+  const { id } = useParams();
+  
+  // 2. Determine final Event ID (Prop > URL > Default)
+  const effectiveId = eventId || Number(id) || 1;
+
+  // 3. Find Event Data
+  const event = EVENTS_DATA.find(e => e.id === effectiveId) || EVENTS_DATA[0];
+  
+  // 4. State for the Modal
+  const [isCheckoutOpen, setCheckoutOpen] = useState(false);
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-white via-gray-50/30 to-white pt-24 sm:pt-32 pb-12 sm:pb-20 px-4 sm:px-6">
       <div className="max-w-6xl mx-auto">
+        
         {/* Back Button */}
         <motion.button
           initial={{ opacity: 0, x: -20 }}
@@ -31,11 +48,11 @@ export function EventDetails({ onBack, onMint }: EventDetailsProps) {
             animate={{ opacity: 1, y: 0 }}
             className="space-y-4 sm:space-y-6"
           >
-            <div className="rounded-3xl overflow-hidden aspect-square bg-gray-100">
-              <ImageWithFallback
-                src="https://images.unsplash.com/photo-1677186304454-6fbe1fe3aaef?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxsdXh1cnklMjBjb25jZXJ0JTIwdmVudWV8ZW58MXx8fHwxNzYxOTUxMzc2fDA&ixlib=rb-4.1.0&q=80&w=1080"
-                alt="Ethereal Sounds Festival"
-                className="w-full h-full object-cover"
+            <div className="rounded-3xl overflow-hidden aspect-square bg-gray-100 shadow-lg">
+              <img
+                src={event.image}
+                alt={event.title}
+                className="w-full h-full object-cover transform hover:scale-105 transition-transform duration-700"
               />
             </div>
 
@@ -44,9 +61,9 @@ export function EventDetails({ onBack, onMint }: EventDetailsProps) {
               <p className="text-xs sm:text-sm text-gray-500 mb-2">NFT Ticket Preview</p>
               <p className="text-sm sm:text-base text-gray-900 mb-4">This digital pass grants you exclusive access and proof of attendance.</p>
               <div className="flex flex-wrap gap-2">
-                <Badge variant="outline" className="border-amber-200 text-amber-900 text-xs">Transferable</Badge>
-                <Badge variant="outline" className="border-amber-200 text-amber-900 text-xs">Verifiable</Badge>
-                <Badge variant="outline" className="border-amber-200 text-amber-900 text-xs">Collectible</Badge>
+                <span className="px-2.5 py-0.5 rounded-full border border-amber-200 text-amber-900 text-xs font-medium">Transferable</span>
+                <span className="px-2.5 py-0.5 rounded-full border border-amber-200 text-amber-900 text-xs font-medium">Verifiable</span>
+                <span className="px-2.5 py-0.5 rounded-full border border-amber-200 text-amber-900 text-xs font-medium">Collectible</span>
               </div>
             </div>
           </motion.div>
@@ -60,10 +77,10 @@ export function EventDetails({ onBack, onMint }: EventDetailsProps) {
           >
             <div>
               <div className="flex flex-wrap items-center gap-3 mb-3 sm:mb-4">
-                <Badge className="bg-amber-100 text-amber-900 hover:bg-amber-100 text-xs">Music</Badge>
+                <span className="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 text-xs font-semibold">Music</span>
                 <span className="text-xs sm:text-sm text-gray-500">• 2,450 attending</span>
               </div>
-              <h1 className="text-3xl sm:text-4xl md:text-5xl mb-3 sm:mb-4 text-gray-900">Ethereal Sounds Festival</h1>
+              <h1 className="text-3xl sm:text-4xl md:text-5xl mb-3 sm:mb-4 text-gray-900 font-bold">{event.title}</h1>
               <p className="text-base sm:text-lg md:text-xl text-gray-500 leading-relaxed">
                 Experience an unforgettable night of electronic music with world-class DJs and immersive visual art installations.
               </p>
@@ -77,7 +94,7 @@ export function EventDetails({ onBack, onMint }: EventDetailsProps) {
                 </div>
                 <div>
                   <p className="text-xs sm:text-sm text-gray-500">Date & Time</p>
-                  <p className="text-sm sm:text-base text-gray-900">December 15, 2025 • 8:00 PM JST</p>
+                  <p className="text-sm sm:text-base text-gray-900">{event.date}</p>
                 </div>
               </div>
 
@@ -87,7 +104,7 @@ export function EventDetails({ onBack, onMint }: EventDetailsProps) {
                 </div>
                 <div>
                   <p className="text-xs sm:text-sm text-gray-500">Location</p>
-                  <p className="text-sm sm:text-base text-gray-900">Shibuya Music Hall, Tokyo, Japan</p>
+                  <p className="text-sm sm:text-base text-gray-900">{event.location}</p>
                 </div>
               </div>
 
@@ -104,7 +121,7 @@ export function EventDetails({ onBack, onMint }: EventDetailsProps) {
 
             {/* Benefits */}
             <div>
-              <h3 className="text-lg sm:text-xl mb-3 sm:mb-4 text-gray-900">Pass Benefits</h3>
+              <h3 className="text-lg sm:text-xl mb-3 sm:mb-4 text-gray-900 font-semibold">Pass Benefits</h3>
               <div className="space-y-3">
                 {[
                   'Full access to all stages and performances',
@@ -123,11 +140,11 @@ export function EventDetails({ onBack, onMint }: EventDetailsProps) {
             </div>
 
             {/* Price & Actions */}
-            <div className="p-5 sm:p-6 rounded-2xl bg-white border border-gray-200">
+            <div className="p-5 sm:p-6 rounded-2xl bg-white border border-gray-200 shadow-sm">
               <div className="flex items-center justify-between mb-5 sm:mb-6">
                 <div>
                   <p className="text-xs sm:text-sm text-gray-500 mb-1">Mint Price</p>
-                  <p className="text-2xl sm:text-3xl text-gray-900">0.5 ETH</p>
+                  <p className="text-2xl sm:text-3xl text-gray-900 font-bold">{event.price} ETH</p>
                   <p className="text-xs sm:text-sm text-gray-400">≈ $1,850 USD</p>
                 </div>
                 <div className="flex gap-2">
@@ -140,9 +157,10 @@ export function EventDetails({ onBack, onMint }: EventDetailsProps) {
                 </div>
               </div>
 
+              {/* ACTION BUTTON - Opens the Modal */}
               <Button
-                onClick={onMint}
-                className="w-full rounded-full bg-gradient-to-r from-gray-900 to-gray-800 hover:shadow-xl transition-all py-5 sm:py-6"
+                onClick={() => setCheckoutOpen(true)}
+                className="w-full rounded-full bg-gradient-to-r from-gray-900 to-gray-800 hover:shadow-xl transition-all py-6 sm:py-7 text-lg font-medium text-white"
               >
                 Mint Ticket NFT
               </Button>
@@ -150,6 +168,13 @@ export function EventDetails({ onBack, onMint }: EventDetailsProps) {
           </motion.div>
         </div>
       </div>
+
+      {/* 🟢 FIXED: Match props to CheckoutModal.tsx */}
+      <CheckoutModal 
+        isOpen={isCheckoutOpen}
+        onClose={() => setCheckoutOpen(false)}
+        event={event} // ✅ Pass the full event object
+      />
     </div>
   );
 }

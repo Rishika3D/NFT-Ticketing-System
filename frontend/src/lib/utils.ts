@@ -1,11 +1,51 @@
-// src/lib/contractUtils.ts
+// src/utils.ts
+import { ethers } from 'ethers';
 
-// 1. PASTE YOUR DEPLOYED CONTRACT ADDRESS HERE
-export const CONTRACT_ADDRESS = "0xYourDeployedContractAddressHere"; 
+// 👇 UPDATED: This is your real, live contract address on Sepolia
+export const CONTRACT_ADDRESS = "0x5E3D1C4a40A0039CB69035604f8CE50FA470a780"; 
 
-// 2. THIS IS THE ABI (Interfaces to talk to your Solidity code)
 export const CONTRACT_ABI = [
-  "function buyTicket(uint256 _eventId) external payable",
-  "function events(uint256) view returns (uint256 id, string name, uint256 price, uint256 totalTickets, uint256 sold, address organizer, string metadataURI, bool exists)",
-  "event TicketMinted(uint256 indexed eventId, uint256 indexed tokenId, address buyer)"
+    {
+        "inputs": [],
+        "stateMutability": "nonpayable",
+        "type": "constructor"
+    },
+    {
+        "inputs": [
+            { "internalType": "uint256", "name": "_eventId", "type": "uint256" }
+        ],
+        "name": "buyTicket",
+        "outputs": [],
+        "stateMutability": "payable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            { "internalType": "uint256", "name": "", "type": "uint256" }
+        ],
+        "name": "events",
+        "outputs": [
+            { "internalType": "uint256", "name": "id", "type": "uint256" },
+            { "internalType": "string", "name": "name", "type": "string" },
+            { "internalType": "uint256", "name": "price", "type": "uint256" },
+            { "internalType": "uint256", "name": "totalTickets", "type": "uint256" },
+            { "internalType": "uint256", "name": "sold", "type": "uint256" },
+            { "internalType": "address payable", "name": "organizer", "type": "address" },
+            { "internalType": "string", "name": "metadataURI", "type": "string" },
+            { "internalType": "bool", "name": "exists", "type": "bool" }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            { "internalType": "uint256", "name": "tokenId", "type": "uint256" }
+        ],
+        "name": "verifyTicket",
+        "outputs": [
+            { "internalType": "bool", "name": "", "type": "bool" }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    }
 ];

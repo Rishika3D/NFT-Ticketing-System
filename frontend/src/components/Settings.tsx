@@ -3,6 +3,7 @@ import { ArrowLeft, LogOut, Save, User, Mail } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { useStore } from '../lib/store';
+import React from 'react';
 
 export function Settings({ onBack, onLogout }: { onBack: () => void, onLogout: () => void }) {
   const { user, updateProfile } = useStore();

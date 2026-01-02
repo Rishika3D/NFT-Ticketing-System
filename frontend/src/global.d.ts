@@ -1,4 +1,4 @@
 // src/global.d.ts
 interface Window {
-    ethereum: any;
+    ethereum?: any;
   }

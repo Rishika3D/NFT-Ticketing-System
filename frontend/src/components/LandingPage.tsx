@@ -1,6 +1,7 @@
 import { motion } from 'motion/react';
 import { Sparkles, Shield, Zap, ArrowRight } from 'lucide-react';
 import { Button } from './ui/button';
+import React from 'react';
 
 interface LandingPageProps {
   onNavigate: (screen: string) => void;

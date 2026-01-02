@@ -1,3 +1,4 @@
+import React from 'react'
 import { Wallet, Menu, X, User, Ticket } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Button } from './ui/button';

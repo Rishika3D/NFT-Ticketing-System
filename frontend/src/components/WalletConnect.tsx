@@ -1,159 +1,87 @@
 import { motion } from 'motion/react';
-import { Wallet, Shield, Zap, ArrowRight, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react'; // Added CheckIcon
+import { Wallet, ArrowRight, Loader2, AlertCircle } from 'lucide-react';
 import { Button } from './ui/button';
-import { useState } from 'react';
-import { createWeb3Modal, defaultConfig } from '@web3modal/ethers/react';
+import { useState, useEffect } from 'react';
+import { createWeb3Modal, defaultConfig, useWeb3Modal, useWeb3ModalAccount } from '@web3modal/ethers/react';
+import React from 'react';
 
-// ... (Keep your existing projectId and config setup here) ...
-const projectId = 'YOUR_PROJECT_ID_HERE'; 
+// 1. CONFIGURATION (Restored inside the file)
+const projectId = '958ca6de4586388b98a8c3b07a235c6e'; // ✅ Real ID
 
-const mainnet = {
-  chainId: 1,
-  name: 'Ethereum',
+const sepolia = {
+  chainId: 11155111,
+  name: 'Sepolia',
   currency: 'ETH',
-  explorerUrl: 'https://etherscan.io',
-  rpcUrl: 'https://cloudflare-eth.com'
+  explorerUrl: 'https://sepolia.etherscan.io',
+  rpcUrl: 'https://rpc.sepolia.org'
 };
 
 const metadata = {
-  name: 'NFT Ticketing',
-  description: 'NFT Event Ticketing System',
-  url: 'http://localhost:3000',
-  icons: ['https://avatars.githubusercontent.com/u/37784886']
+  name: 'Ticket dApp',
+  description: 'Buy NFT Tickets',
+  url: 'http://localhost:5173',
+  icons: ['https://avatars.mywebsite.com/']
 };
 
-const ethersConfig = defaultConfig({
-  metadata,
-  enableEmail: true,
-  defaultChainId: 1,
-  enableCoinbase: true,
-  rpcUrl: 'https://cloudflare-eth.com',
-});
-
-const modal = createWeb3Modal({
-  ethersConfig,
-  chains: [mainnet],
+createWeb3Modal({
+  ethersConfig: defaultConfig({ metadata }),
+  chains: [sepolia],
   projectId,
   enableAnalytics: true
 });
-
-// ... End config ...
 
 interface WalletConnectProps {
   onConnect: () => void;
   onBack: () => void;
 }
 
+// 2. RESTORED YOUR 4 OPTIONS
 const wallets = [
-  { id: 'metamask', name: 'MetaMask', description: 'Popular browser extension', icon: '🦊' },
-  { id: 'walletconnect', name: 'WalletConnect', description: 'Scan QR code with mobile', icon: '📱' },
-  { id: 'coinbase', name: 'Coinbase Wallet', description: 'Secure extension & mobile', icon: '💼' },
-  { id: 'rainbow', name: 'Rainbow', description: 'User-friendly wallet', icon: '🌈' }
+  { id: 'metamask', name: 'MetaMask', description: 'Browser extension', icon: '🦊' },
+  { id: 'walletconnect', name: 'WalletConnect', description: 'Scan QR with phone', icon: '📱' },
+  { id: 'coinbase', name: 'Coinbase', description: 'Coinbase Wallet', icon: '💼' },
+  { id: 'rainbow', name: 'Rainbow', description: 'Rainbow Extension', icon: '🌈' },
 ];
 
 export function WalletConnect({ onConnect, onBack }: WalletConnectProps) {
+  const { open } = useWeb3Modal();
+  const { isConnected } = useWeb3ModalAccount();
   const [connectingWallet, setConnectingWallet] = useState<string | null>(null);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [successAddress, setSuccessAddress] = useState<string | null>(null); // New Success State
+  
+  // 3. LISTEN FOR CONNECTION SUCCESS
+  useEffect(() => {
+    if (isConnected) {
+      onConnect();
+    }
+  }, [isConnected, onConnect]);
 
   const handleWalletClick = async (walletId: string) => {
-    setErrorMsg(null);
     setConnectingWallet(walletId);
-
     try {
-      if (walletId === 'walletconnect') {
-        // ... (Keep existing WalletConnect logic) ...
-        await modal.open();
-        // Simplified check for demo purposes
-        const interval = setInterval(() => {
-            if (modal.getIsConnected()) {
-                clearInterval(interval);
-                handleSuccess("WalletConnect");
-            }
-        }, 1000);
-      } 
-      else {
-        // Browser Extension Logic
-        if (typeof window.ethereum !== 'undefined') {
-          const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-          
-          if (accounts.length > 0) {
-            const address = accounts[0];
-            localStorage.setItem("walletAddress", address);
-            localStorage.setItem("loginMethod", "wallet");
-            
-            // INSTEAD OF REDIRECTING INSTANTLY, SHOW SUCCESS
-            handleSuccess(address);
-          }
-        } else {
-          throw new Error("No wallet extension found. Please install MetaMask.");
-        }
-      }
-    } catch (error: any) {
-      console.error("Wallet Error:", error);
-      if (error.code === 4001) setErrorMsg("Connection request cancelled.");
-      else if (error.code === -32002) setErrorMsg("Check your wallet extension! A connection request is waiting.");
-      else setErrorMsg(error.message || "Failed to connect.");
+      // We open the modal for all options because Web3Modal handles 
+      // the specific connection logic (MetaMask, Coinbase, etc) internally 
+      // and much more reliably than custom code.
+      await open();
+    } catch (err) {
+      console.error(err);
       setConnectingWallet(null);
     }
-  };
-
-  // Helper to show success for 1.5 seconds, then redirect
-  const handleSuccess = (addressOrName: string) => {
-    setConnectingWallet(null);
-    // Format address if it's long (e.g. 0x123...abc)
-    const display = addressOrName.startsWith("0x") 
-      ? `${addressOrName.slice(0, 6)}...${addressOrName.slice(-4)}`
-      : addressOrName;
-      
-    setSuccessAddress(display);
-    
-    // Wait 1.5s before moving to next screen
-    setTimeout(() => {
-      onConnect();
-    }, 1500);
+    // We don't setConnectingWallet(null) immediately so the spinner stays 
+    // while the user is interacting with the wallet
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-white via-gray-50/30 to-white pt-24 sm:pt-32 pb-12 sm:pb-20 px-4 sm:px-6">
       <div className="max-w-2xl mx-auto">
-        
-        {/* Header */}
         <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-8 sm:mb-12">
-          {/* Change Icon based on Success State */}
-          <div className={`w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center mx-auto mb-5 sm:mb-6 transition-colors duration-500 ${successAddress ? 'bg-green-100' : 'bg-gradient-to-br from-amber-100 to-amber-50'}`}>
-            {successAddress ? (
-              <CheckCircle2 className="w-8 h-8 sm:w-10 sm:h-10 text-green-600" strokeWidth={2} />
-            ) : (
-              <Wallet className="w-8 h-8 sm:w-10 sm:h-10 text-amber-900" strokeWidth={1.5} />
-            )}
+          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-gradient-to-br from-amber-100 to-amber-50 flex items-center justify-center mx-auto mb-5 sm:mb-6">
+             <Wallet className="w-8 h-8 sm:w-10 sm:h-10 text-amber-900" strokeWidth={1.5} />
           </div>
-          
-          <h1 className="text-3xl sm:text-4xl md:text-5xl mb-3 sm:mb-4 text-gray-900">
-            {successAddress ? "Wallet Connected!" : "Connect Your Wallet"}
-          </h1>
-          <p className="text-base sm:text-lg md:text-xl text-gray-500 px-4">
-            {successAddress ? `Redirecting you to events...` : "Select your preferred wallet"}
-          </p>
+          <h1 className="text-3xl sm:text-4xl md:text-5xl mb-3 sm:mb-4 text-gray-900">Connect Wallet</h1>
+          <p className="text-base sm:text-lg md:text-xl text-gray-500">Select your preferred wallet</p>
         </motion.div>
 
-        {/* Success Banner */}
-        {successAddress && (
-          <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="mb-8 p-4 bg-green-50 border border-green-200 rounded-xl text-center">
-             <p className="text-green-800 font-medium">Successfully connected as <span className="font-mono">{successAddress}</span></p>
-          </motion.div>
-        )}
-
-        {/* Error Banner */}
-        {errorMsg && !successAddress && (
-          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="mb-6 p-4 rounded-xl bg-red-50 border border-red-100 flex items-start gap-3 text-red-700">
-            <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
-            <span className="text-sm">{errorMsg}</span>
-          </motion.div>
-        )}
-
-        {/* Buttons - Hidden or Disabled on Success */}
-        <div className="space-y-3 sm:space-y-4 mb-8 sm:mb-12">
+        <div className="space-y-3 mb-8">
           {wallets.map((wallet, index) => (
             <motion.button
               key={wallet.id}
@@ -161,39 +89,24 @@ export function WalletConnect({ onConnect, onBack }: WalletConnectProps) {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.1 }}
               onClick={() => handleWalletClick(wallet.id)}
-              disabled={connectingWallet !== null || successAddress !== null}
-              className={`w-full p-5 sm:p-6 rounded-2xl bg-white border transition-all group text-left relative flex items-center justify-between
-                ${successAddress ? 'opacity-50 grayscale' : 'border-gray-200 hover:border-amber-200 hover:shadow-lg'}
-                ${connectingWallet === wallet.id ? 'border-amber-500 ring-1 ring-amber-500' : ''}
-              `}
+              disabled={connectingWallet !== null}
+              className="w-full p-5 rounded-2xl bg-white border border-gray-200 hover:border-amber-200 hover:shadow-lg transition-all text-left flex items-center justify-between group"
             >
-              <div className="flex items-center gap-3 sm:gap-4">
-                <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl bg-gray-50 flex items-center justify-center text-xl sm:text-2xl">
-                  {wallet.icon}
-                </div>
+              <div className="flex items-center gap-4">
+                <div className="text-2xl">{wallet.icon}</div>
                 <div>
-                  <p className="text-base sm:text-lg text-gray-900 mb-0.5 sm:mb-1">{wallet.name}</p>
-                  <p className="text-xs sm:text-sm text-gray-500">{wallet.description}</p>
+                  <p className="font-medium text-gray-900">{wallet.name}</p>
+                  <p className="text-xs text-gray-500">{wallet.description}</p>
                 </div>
               </div>
-              
-              {connectingWallet === wallet.id ? (
-                <Loader2 className="w-5 h-5 text-amber-600 animate-spin" />
-              ) : successAddress ? (
-                <div /> 
-              ) : (
-                <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 group-hover:text-amber-900 group-hover:translate-x-1 transition-all" strokeWidth={1.5} />
-              )}
+              {connectingWallet === wallet.id ? <Loader2 className="w-5 h-5 animate-spin text-amber-600"/> : <ArrowRight className="w-5 h-5 text-gray-300 group-hover:text-amber-600"/>}
             </motion.button>
           ))}
         </div>
-
-        {/* Back Button */}
-        {!successAddress && (
-          <div className="text-center">
-            <Button variant="ghost" onClick={onBack} className="text-gray-500 hover:text-gray-900">Go back</Button>
-          </div>
-        )}
+        
+        <div className="text-center">
+            <Button variant="ghost" onClick={onBack}>Cancel</Button>
+        </div>
       </div>
     </div>
   );
