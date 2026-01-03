@@ -1,27 +1,50 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Routes, Route, useNavigate } from 'react-router-dom';
-import { useStore } from './lib/store';
+import { useWeb3ModalAccount } from '@web3modal/ethers/react';
 import { Header } from './components/Header';
 import { LandingPage } from './components/LandingPage';
 import { EventList } from './components/EventList';
 import { EventDetails } from './components/EventDetails';
 import { WalletConnect } from './components/WalletConnect';
-import { MintConfirmation } from './components/MintConfirmation';
 import { Profile } from './components/Profile';
 import { SignIn } from './components/SignIn';
+import { Settings } from './components/Settings';
 
 export default function App() {
-  const { isAuthenticated } = useStore();
+  const { isConnected, address } = useWeb3ModalAccount();
   const navigate = useNavigate();
-  const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
+  // We don't need selectedEventId state anymore because the URL handles it!
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  // Track authentication from wallet connection
+  useEffect(() => {
+    if (isConnected && address) {
+      setIsAuthenticated(true);
+      localStorage.setItem('isAuthenticated', 'true');
+      localStorage.setItem('walletAddress', address);
+    } else {
+      const savedAuth = localStorage.getItem('isAuthenticated');
+      if (savedAuth === 'true') {
+        setIsAuthenticated(true);
+      }
+    }
+  }, [isConnected, address]);
 
   const handleConnect = () => {
+    setIsAuthenticated(true);
     navigate('/events');
   };
 
   const handleEventSelect = (id: number) => {
-    setSelectedEventId(id);
-    navigate('/event-details');
+    // This pushes the ID to the URL (e.g., /event/1)
+    navigate(`/event/${id}`);
+  };
+
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    localStorage.removeItem('isAuthenticated');
+    localStorage.removeItem('walletAddress');
+    navigate('/');
   };
 
   return (
@@ -29,7 +52,7 @@ export default function App() {
       <Header
         currentScreen="dynamic"
         onNavigate={(screen) => navigate(`/${screen === 'landing' ? '' : screen}`)}
-        isWalletConnected={isAuthenticated}
+        isWalletConnected={isAuthenticated || isConnected}
         onWalletConnect={() => navigate('/wallet')}
       />
 
@@ -51,14 +74,14 @@ export default function App() {
           <EventList onEventSelect={handleEventSelect} />
         } />
         
-        <Route path="/event-details" element={
+        {/* ✅ CORRECT: The :id in the path is automatically read by EventDetails */}
+        <Route path="/event/:id" element={
           <EventDetails 
-            eventId={selectedEventId || 1}
             onBack={() => navigate('/events')} 
-            onMint={() => navigate(isAuthenticated ? '/mint-confirm' : '/wallet')} 
+            onMint={() => {}} 
           />
         } />
-
+        
         <Route path="/wallet" element={
           <WalletConnect 
             onConnect={handleConnect} 
@@ -66,17 +89,20 @@ export default function App() {
           />
         } />
 
-        <Route path="/mint-confirm" element={
-          <MintConfirmation 
-            onViewProfile={() => navigate('/profile')} 
-            onBackToEvents={() => navigate('/events')} 
-          />
-        } />
-
         <Route 
           path="/profile" 
-          element={<Profile onNavigate={(screen) => navigate(`/${screen}`)} />} 
+          element={<Profile />} 
         />
+
+        <Route 
+          path="/settings" 
+          element={
+            <Settings 
+              onBack={() => navigate(-1)} 
+            />
+          } 
+        />
+
       </Routes>
     </div>
   );

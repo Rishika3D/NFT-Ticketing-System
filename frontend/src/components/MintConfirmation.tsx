@@ -2,6 +2,7 @@ import { motion } from 'motion/react';
 import { CheckCircle2, Download, Share2, ArrowRight, Sparkles } from 'lucide-react';
 import { Button } from './ui/button';
 import { ImageWithFallback } from './figma/ImageWithFallback';
+import React from 'react';
 
 interface MintConfirmationProps {
   onViewProfile: () => void;

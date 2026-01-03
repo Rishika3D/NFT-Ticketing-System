@@ -4,69 +4,102 @@ import { useState, useEffect, useCallback } from 'react';
 import { ethers } from 'ethers';
 import { CONTRACT_ADDRESS, CONTRACT_ABI } from '../lib/utils';
 import React from 'react';
-import { EVENTS_DATA } from '../data'; 
+import { EVENTS_DATA } from '../data';
+
+interface TicketData {
+  tokenId: number;
+  eventId: number;
+  owner: string;
+  used: boolean;
+}
 
 export function Profile() {
   const { address, isConnected } = useWeb3ModalAccount();
   const { walletProvider } = useWeb3ModalProvider();
   
-  const [tickets, setTickets] = useState<any[]>([]);
+  const [tickets, setTickets] = useState<TicketData[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   const fetchTickets = useCallback(async () => {
-    // 1. Safety Check: Don't run if wallet isn't ready
-    if (!isConnected || !walletProvider) return;
+    if (!isConnected || !walletProvider || !address) return;
     
     setLoading(true);
     setError('');
-    setTickets([]); // Clear previous state
+    setTickets([]);
 
     try {
       const ethersProvider = new ethers.BrowserProvider(walletProvider);
+      const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, ethersProvider);
+
+      console.log("🔍 Fetching tickets for:", address);
+
+      // Get TicketMinted events to find all tickets purchased by this user
+      // Since filters.Transfer doesn't exist in our ABI, we'll query TicketMinted events
+      const currentBlock = await ethersProvider.getBlockNumber();
       
-      // 2. We use the Provider (Read-Only) first to avoid "RPC Not Allowed" popups
-      // Only get signer if absolutely necessary for your specific contract logic
-      const signer = await ethersProvider.getSigner();
-      const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
-
-      console.log("Fetching tickets for:", address);
-
-      // --- SIMULATION MODE (To fix your crash while testing) ---
-      // If your contract doesn't have a "getTickets" function yet, 
-      // we will verify ownership by checking specific event IDs.
+      // Look back 10000 blocks (adjust based on when contract was deployed)
+      const fromBlock = Math.max(0, currentBlock - 10000);
       
-      const foundTickets = [];
+      // Query all TicketMinted events (no filter available in our ABI)
+      // We'll filter by buyer address after
+      const allEvents = await ethersProvider.getLogs({
+        address: CONTRACT_ADDRESS,
+        fromBlock,
+        toBlock: currentBlock,
+        topics: [
+          ethers.id("TicketMinted(uint256,uint256,address)") // Event signature
+        ]
+      });
+      
+      console.log("📜 Found", allEvents.length, "TicketMinted events");
 
-      // Check the first 10 event IDs to see if user bought them
-      for (let i = 1; i <= 10; i++) {
+      const foundTickets: TicketData[] = [];
+
+      for (const log of allEvents) {
         try {
-          // Assuming your contract has a mapping like tickets(eventId, userAddress)
-          // OR verifyTicket(eventId)
-          // If this fails, the catch block handles it.
+          // Parse the log using contract interface
+          const parsed = contract.interface.parseLog({
+            topics: [...log.topics],
+            data: log.data
+          });
           
-          // NOTE: Un-comment the line below if your contract has a 'hasTicket' function
-          // const hasTicket = await contract.hasTicket(i); 
+          if (!parsed) continue;
           
-          // FOR NOW: Let's assume if the transaction succeeded in the modal, 
-          // we don't want to block the UI. 
-          // We will attempt to match events loosely to stop the crash.
+          const eventId = Number(parsed.args[0]);
+          const tokenId = Number(parsed.args[1]);
+          const buyer = parsed.args[2];
+          
+          // Only include tickets bought by this user
+          if (buyer.toLowerCase() !== address.toLowerCase()) continue;
+          
+          // Verify current owner (in case ticket was transferred)
+          const currentOwner = await contract.ownerOf(tokenId);
+          
+          if (currentOwner.toLowerCase() === address.toLowerCase()) {
+            // Check if ticket has been used
+            const isUsed = await contract.ticketUsed(tokenId);
+            
+            foundTickets.push({
+              tokenId,
+              eventId,
+              owner: currentOwner,
+              used: isUsed
+            });
+            
+            console.log(`✅ Found ticket #${tokenId} for event #${eventId}`);
+          }
         } catch (err) {
-          // Ignore contract read errors to prevent UI crash
+          console.error("Error processing event:", err);
         }
       }
 
-      // ⚠️ TEMPORARY FIX: 
-      // Since we can't read your exact contract storage without the exact function name,
-      // and we want to see the UI working:
-      // We will show tickets if we have a valid connected wallet, just for UI testing.
-      // REPLACE this logic with your actual contract call later.
-      
-      setTickets([]); // Keep empty by default so it doesn't crash on invalid IDs
+      setTickets(foundTickets);
+      console.log("🎫 Total tickets owned:", foundTickets.length);
 
     } catch (err: any) {
-      console.error("Error fetching tickets:", err);
-      // Don't show error to user, just show empty state to be clean
+      console.error("❌ Error fetching tickets:", err);
+      setError(err.message || "Failed to fetch tickets");
     } finally {
       setLoading(false);
     }
@@ -77,8 +110,6 @@ export function Profile() {
       fetchTickets();
     }
   }, [isConnected, fetchTickets]);
-
-  // --- RENDER HELPERS ---
 
   if (!isConnected) {
     return (
@@ -109,8 +140,9 @@ export function Profile() {
           </div>
           
           <button 
-            onClick={() => fetchTickets()} 
-            className="md:ml-auto p-3 text-gray-500 hover:bg-gray-100 rounded-full transition-colors"
+            onClick={fetchTickets} 
+            disabled={loading}
+            className="md:ml-auto p-3 text-gray-500 hover:bg-gray-100 rounded-full transition-colors disabled:opacity-50"
             title="Refresh Tickets"
           >
             <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
@@ -121,31 +153,75 @@ export function Profile() {
       {/* Tickets Section */}
       <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
         <Ticket className="w-6 h-6 text-amber-600" />
-        My Tickets
+        My Tickets {tickets.length > 0 && `(${tickets.length})`}
       </h2>
+
+      {error && (
+        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
+          <p className="font-medium">Error loading tickets</p>
+          <p className="text-sm mt-1">{error}</p>
+        </div>
+      )}
 
       {loading ? (
         <div className="flex items-center justify-center py-20">
           <Loader2 className="w-8 h-8 animate-spin text-amber-600" />
+          <span className="ml-3 text-gray-600">Loading your tickets...</span>
         </div>
       ) : tickets.length === 0 ? (
         <div className="text-center py-20 bg-gray-50 rounded-2xl border border-dashed border-gray-300">
           <Ticket className="w-12 h-12 text-gray-300 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-gray-900">No tickets found</h3>
-          <p className="text-gray-500">Tickets you verify on the blockchain will appear here.</p>
+          <p className="text-gray-500 mt-2">
+            {isConnected 
+              ? "Purchase tickets from events to see them here."
+              : "Connect your wallet to view tickets."
+            }
+          </p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {tickets.map((ticket, index) => {
-            // --- 🛑 THE CRASH FIX IS HERE 🛑 ---
-            // We search for the event data.
-            const eventData = EVENTS_DATA.find(e => e.id === ticket.eventId || e.id === ticket.id);
+          {tickets.map((ticket) => {
+            const eventData = EVENTS_DATA.find(e => e.id === ticket.eventId);
             
-            // If data is missing, WE RETURN NULL instead of crashing
-            if (!eventData) return null; 
+            // If event data not found in our local data, show a basic card
+            if (!eventData) {
+              return (
+                <div key={ticket.tokenId} className="bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100">
+                  <div className="relative h-48 bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
+                    <Ticket className="w-16 h-16 text-gray-400" />
+                    <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-bold text-amber-600 shadow-sm">
+                      #{ticket.tokenId}
+                    </div>
+                  </div>
+                  <div className="p-5">
+                    <h3 className="font-bold text-xl text-gray-900 mb-3">
+                      Event #{ticket.eventId}
+                    </h3>
+                    <p className="text-sm text-gray-500 mb-4">Event details not available locally</p>
+                    <a 
+                      href={`https://sepolia.etherscan.io/token/${CONTRACT_ADDRESS}?a=${ticket.tokenId}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center justify-center gap-2 w-full py-2.5 rounded-lg border border-gray-200 text-gray-700 font-medium hover:bg-gray-50 transition-colors text-sm"
+                    >
+                      View on Chain <ExternalLink className="w-3 h-3" />
+                    </a>
+                  </div>
+                </div>
+              );
+            }
 
             return (
-              <div key={index} className="bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100 hover:shadow-md transition-shadow group">
+              <div key={ticket.tokenId} className="bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100 hover:shadow-md transition-shadow group relative">
+                {ticket.used && (
+                  <div className="absolute inset-0 bg-black/60 z-10 flex items-center justify-center backdrop-blur-sm">
+                    <div className="bg-white/90 px-6 py-3 rounded-full">
+                      <span className="text-gray-900 font-bold">TICKET USED</span>
+                    </div>
+                  </div>
+                )}
+                
                 <div className="relative h-48 overflow-hidden">
                   <img 
                     src={eventData.image} 
@@ -153,8 +229,13 @@ export function Profile() {
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                   />
                   <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-bold text-amber-600 shadow-sm">
-                    TICKET #{index + 1}
+                    TICKET #{ticket.tokenId}
                   </div>
+                  {!ticket.used && (
+                    <div className="absolute top-4 left-4 bg-green-500/90 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-bold text-white shadow-sm">
+                      VALID
+                    </div>
+                  )}
                 </div>
                 
                 <div className="p-5">
@@ -174,7 +255,7 @@ export function Profile() {
                   </div>
 
                   <a 
-                    href={`https://sepolia.etherscan.io/address/${CONTRACT_ADDRESS}`}
+                    href={`https://sepolia.etherscan.io/token/${CONTRACT_ADDRESS}?a=${ticket.tokenId}`}
                     target="_blank"
                     rel="noreferrer"
                     className="flex items-center justify-center gap-2 w-full py-2.5 rounded-lg border border-gray-200 text-gray-700 font-medium hover:bg-gray-50 transition-colors text-sm"

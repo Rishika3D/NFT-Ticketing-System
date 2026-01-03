@@ -4,8 +4,8 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useWeb3ModalAccount } from '@web3modal/ethers/react';
 import React from 'react';
-import { ethers } from 'ethers'; // Import ethers
 
 interface SignInProps {
   onWalletConnect: () => void;
@@ -17,43 +17,24 @@ export function SignIn({ onWalletConnect, onEmailSignIn, onBack }: SignInProps) 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [walletLoading, setWalletLoading] = useState(false); // State for wallet loading
   const navigate = useNavigate();
+  
+  // Web3Modal hooks
+  const { isConnected } = useWeb3ModalAccount();
 
-  // 1. THE WALLET CONNECTION LOGIC
-  const handleWalletLogin = async () => {
-    setWalletLoading(true);
-
-    // Check if MetaMask is installed
-    if (typeof window.ethereum !== 'undefined') {
-      try {
-        // Request account access
-        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-        
-        if (accounts.length > 0) {
-          const address = accounts[0];
-          console.log("Connected:", address);
-          
-          // Save to localStorage so the app remembers
-          localStorage.setItem("walletAddress", address);
-          localStorage.setItem("loginMethod", "wallet");
-
-          // Trigger the parent callback to update App state
-          onWalletConnect();
-          
-          // Navigate to events page
-          navigate('/events');
-        }
-      } catch (error) {
-        console.error("User denied connection:", error);
-        alert("Connection request rejected. Please try again.");
-      }
-    } else {
-      alert("MetaMask is not installed! Please install it to use this feature.");
-      // Optional: window.open('https://metamask.io/download/', '_blank');
-    }
-    setWalletLoading(false);
+  // Handle wallet connection - Navigate to wallet selection page
+  const handleWalletLogin = () => {
+    navigate('/wallet'); // Go to proper wallet selection screen
   };
+
+  // Watch for connection success (from WalletConnect page)
+  React.useEffect(() => {
+    if (isConnected) {
+      console.log("✅ Wallet connected!");
+      onWalletConnect();
+      navigate('/events');
+    }
+  }, [isConnected, onWalletConnect, navigate]);
 
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -70,7 +51,7 @@ export function SignIn({ onWalletConnect, onEmailSignIn, onBack }: SignInProps) 
 
       if (res.ok) {
         localStorage.setItem("token", data.token);
-        localStorage.setItem("loginMethod", "email"); // Track method
+        localStorage.setItem("loginMethod", "email");
         onEmailSignIn();
         navigate("/events");
       } else {
@@ -91,25 +72,21 @@ export function SignIn({ onWalletConnect, onEmailSignIn, onBack }: SignInProps) 
           <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-gradient-to-br from-amber-100 to-amber-50 flex items-center justify-center mx-auto mb-5 sm:mb-6">
             <Sparkles className="w-8 h-8 sm:w-10 sm:h-10 text-amber-900" strokeWidth={1.5} />
           </div>
-          <h1 className="text-3xl sm:text-4xl md:text-5xl mb-3 sm:mb-4 text-gray-900">Welcome Back</h1>
+          <h1 className="text-3xl sm:text-4xl md:text-5xl mb-3 sm:mb-4 text-gray-900 font-bold">Welcome Back</h1>
           <p className="text-base sm:text-lg md:text-xl text-gray-500">Sign in to access your exclusive passes</p>
         </motion.div>
 
-        {/* 2. UPDATED WALLET BUTTON */}
+        {/* Wallet Button */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="mb-6 sm:mb-8">
           <Button
-            onClick={handleWalletLogin} // Use the new function
-            disabled={walletLoading}
+            onClick={handleWalletLogin}
+            disabled={false}
             className="w-full rounded-2xl bg-gradient-to-r from-gray-900 to-gray-800 hover:shadow-xl transition-all py-6 sm:py-7 text-base sm:text-lg"
           >
-            {walletLoading ? (
-               <span className="flex items-center">Connecting...</span>
-            ) : (
-               <span className="flex items-center">
-                 <Wallet className="w-5 h-5 sm:w-6 sm:h-6 mr-3" strokeWidth={1.5} />
-                 Sign In with Wallet
-               </span>
-            )}
+            <span className="flex items-center">
+              <Wallet className="w-5 h-5 sm:w-6 sm:h-6 mr-3" strokeWidth={1.5} />
+              Sign In with Wallet
+            </span>
           </Button>
           <p className="text-xs sm:text-sm text-gray-500 text-center mt-3">
             Connect with MetaMask, WalletConnect, or Coinbase
@@ -147,14 +124,14 @@ export function SignIn({ onWalletConnect, onEmailSignIn, onBack }: SignInProps) 
               <Shield className="w-4 h-4 sm:w-5 sm:h-5 text-amber-900" strokeWidth={1.5} />
             </div>
             <div>
-              <h3 className="text-base sm:text-lg mb-1.5 sm:mb-2 text-gray-900">Secure Access</h3>
+              <h3 className="text-base sm:text-lg mb-1.5 sm:mb-2 text-gray-900 font-medium">Secure Access</h3>
               <p className="text-xs sm:text-sm text-gray-500 leading-relaxed">Your credentials are encrypted and secure.</p>
             </div>
           </div>
         </motion.div>
 
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }} className="mt-6 sm:mt-8 text-center space-y-3">
-          <p className="text-sm text-gray-500">Don't have an account? <button onClick={onWalletConnect} className="text-amber-900 hover:underline">Create one</button></p>
+          <p className="text-sm text-gray-500">Don't have an account? <button onClick={handleWalletLogin} className="text-amber-900 hover:underline font-medium">Create one</button></p>
           <button onClick={onBack} className="text-sm text-gray-400 hover:text-gray-900 transition-colors">← Back to home</button>
         </motion.div>
       </div>

@@ -1,12 +1,13 @@
 import { motion } from 'motion/react';
-import { Wallet, ArrowRight, Loader2, AlertCircle } from 'lucide-react';
+import { Wallet, ArrowRight, Loader2 } from 'lucide-react';
 import { Button } from './ui/button';
 import { useState, useEffect } from 'react';
 import { createWeb3Modal, defaultConfig, useWeb3Modal, useWeb3ModalAccount } from '@web3modal/ethers/react';
 import React from 'react';
 
-// 1. CONFIGURATION (Restored inside the file)
-const projectId = '958ca6de4586388b98a8c3b07a235c6e'; // ✅ Real ID
+// ... (Keep your configuration: projectId, sepolia, metadata, etc.) ...
+
+const projectId = '958ca6de4586388b98a8c3b07a235c6e';
 
 const sepolia = {
   chainId: 11155111,
@@ -35,7 +36,6 @@ interface WalletConnectProps {
   onBack: () => void;
 }
 
-// 2. RESTORED YOUR 4 OPTIONS
 const wallets = [
   { id: 'metamask', name: 'MetaMask', description: 'Browser extension', icon: '🦊' },
   { id: 'walletconnect', name: 'WalletConnect', description: 'Scan QR with phone', icon: '📱' },
@@ -47,8 +47,11 @@ export function WalletConnect({ onConnect, onBack }: WalletConnectProps) {
   const { open } = useWeb3Modal();
   const { isConnected } = useWeb3ModalAccount();
   const [connectingWallet, setConnectingWallet] = useState<string | null>(null);
-  
-  // 3. LISTEN FOR CONNECTION SUCCESS
+
+  // REMOVED: The useEffect that forced disconnect() on mount.
+  // Now, if you refresh, Web3Modal will remember you are connected.
+
+  // Listen for successful connection
   useEffect(() => {
     if (isConnected) {
       onConnect();
@@ -58,27 +61,23 @@ export function WalletConnect({ onConnect, onBack }: WalletConnectProps) {
   const handleWalletClick = async (walletId: string) => {
     setConnectingWallet(walletId);
     try {
-      // We open the modal for all options because Web3Modal handles 
-      // the specific connection logic (MetaMask, Coinbase, etc) internally 
-      // and much more reliably than custom code.
       await open();
     } catch (err) {
       console.error(err);
       setConnectingWallet(null);
     }
-    // We don't setConnectingWallet(null) immediately so the spinner stays 
-    // while the user is interacting with the wallet
   };
 
   return (
+    // ... (Keep your UI exactly the same) ...
     <div className="min-h-screen bg-gradient-to-b from-white via-gray-50/30 to-white pt-24 sm:pt-32 pb-12 sm:pb-20 px-4 sm:px-6">
       <div className="max-w-2xl mx-auto">
         <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-8 sm:mb-12">
-          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-gradient-to-br from-amber-100 to-amber-50 flex items-center justify-center mx-auto mb-5 sm:mb-6">
+           <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-gradient-to-br from-amber-100 to-amber-50 flex items-center justify-center mx-auto mb-5 sm:mb-6">
              <Wallet className="w-8 h-8 sm:w-10 sm:h-10 text-amber-900" strokeWidth={1.5} />
           </div>
           <h1 className="text-3xl sm:text-4xl md:text-5xl mb-3 sm:mb-4 text-gray-900">Connect Wallet</h1>
-          <p className="text-base sm:text-lg md:text-xl text-gray-500">Select your preferred wallet</p>
+          <p className="text-base sm:text-lg md:text-xl text-gray-500">Select your preferred wallet to continue</p>
         </motion.div>
 
         <div className="space-y-3 mb-8">

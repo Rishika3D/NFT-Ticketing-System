@@ -3,6 +3,7 @@ import { Wallet, Menu, X, User, Ticket } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Button } from './ui/button';
 import { useState } from 'react';
+import { useWeb3Modal, useWeb3ModalAccount } from '@web3modal/ethers/react';
 
 interface HeaderProps {
   currentScreen: string;
@@ -13,6 +14,23 @@ interface HeaderProps {
 
 export function Header({ currentScreen, onNavigate, isWalletConnected, onWalletConnect }: HeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  
+  // Get real wallet info from Web3Modal
+  const { open } = useWeb3Modal();
+  const { address, isConnected } = useWeb3ModalAccount();
+
+  // Use actual connection status
+  const actuallyConnected = isConnected || isWalletConnected;
+
+  const handleWalletClick = () => {
+    if (actuallyConnected) {
+      // If connected, go to profile
+      onNavigate('profile');
+    } else {
+      // If not connected, open wallet modal
+      open();
+    }
+  };
 
   return (
     <motion.header 
@@ -26,14 +44,14 @@ export function Header({ currentScreen, onNavigate, isWalletConnected, onWalletC
             <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-amber-100 to-amber-200 flex items-center justify-center group-hover:shadow-lg transition-shadow">
               <Ticket className="w-4 h-4 sm:w-5 sm:h-5 text-amber-900" strokeWidth={1.5} />
             </div>
-            <span className="text-gray-900 tracking-tight text-sm sm:text-base">Luxe Pass</span>
+            <span className="text-gray-900 tracking-tight text-sm sm:text-base font-semibold">Luxe Pass</span>
           </button>
           
           <nav className="hidden md:flex gap-8">
             <button 
               onClick={() => onNavigate('events')}
               className={`text-sm tracking-wide transition-colors ${
-                currentScreen === 'events' ? 'text-gray-900' : 'text-gray-400 hover:text-gray-700'
+                currentScreen === 'events' ? 'text-gray-900 font-medium' : 'text-gray-400 hover:text-gray-700'
               }`}
             >
               Events
@@ -41,26 +59,38 @@ export function Header({ currentScreen, onNavigate, isWalletConnected, onWalletC
             <button 
               onClick={() => onNavigate('profile')}
               className={`text-sm tracking-wide transition-colors ${
-                currentScreen === 'profile' ? 'text-gray-900' : 'text-gray-400 hover:text-gray-700'
+                currentScreen === 'profile' ? 'text-gray-900 font-medium' : 'text-gray-400 hover:text-gray-700'
               }`}
             >
               My Passes
             </button>
+            {actuallyConnected && (
+              <button 
+                onClick={() => onNavigate('settings')}
+                className={`text-sm tracking-wide transition-colors ${
+                  currentScreen === 'settings' ? 'text-gray-900 font-medium' : 'text-gray-400 hover:text-gray-700'
+                }`}
+              >
+                Settings
+              </button>
+            )}
           </nav>
         </div>
 
         <div className="flex items-center gap-3 sm:gap-4">
-          {isWalletConnected ? (
+          {actuallyConnected && address ? (
             <button 
               onClick={() => onNavigate('profile')}
               className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-amber-50 to-amber-100 hover:shadow-md transition-all"
             >
               <User className="w-4 h-4 text-amber-900" strokeWidth={1.5} />
-              <span className="text-sm text-gray-900">0x7f...a3b2</span>
+              <span className="text-sm text-gray-900 font-mono">
+                {address.slice(0, 6)}...{address.slice(-4)}
+              </span>
             </button>
           ) : (
             <Button
-              onClick={onWalletConnect}
+              onClick={handleWalletClick}
               className="hidden sm:flex rounded-full bg-gradient-to-r from-gray-900 to-gray-800 hover:shadow-lg transition-all px-6"
             >
               <Wallet className="w-4 h-4 mr-2" strokeWidth={1.5} />
@@ -120,7 +150,7 @@ export function Header({ currentScreen, onNavigate, isWalletConnected, onWalletC
               </button>
               
               <div className="pt-3 border-t border-gray-100">
-                {isWalletConnected ? (
+                {actuallyConnected && address ? (
                   <button 
                     onClick={() => {
                       onNavigate('profile');
@@ -129,7 +159,9 @@ export function Header({ currentScreen, onNavigate, isWalletConnected, onWalletC
                     className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gradient-to-r from-amber-50 to-amber-100"
                   >
                     <User className="w-4 h-4 text-amber-900" strokeWidth={1.5} />
-                    <span className="text-sm text-gray-900">0x7f...a3b2</span>
+                    <span className="text-sm text-gray-900 font-mono">
+                      {address.slice(0, 6)}...{address.slice(-4)}
+                    </span>
                   </button>
                 ) : (
                   <div className="space-y-2">
@@ -145,7 +177,7 @@ export function Header({ currentScreen, onNavigate, isWalletConnected, onWalletC
                     </Button>
                     <Button
                       onClick={() => {
-                        onWalletConnect();
+                        open();
                         setMobileMenuOpen(false);
                       }}
                       className="w-full rounded-xl bg-gradient-to-r from-gray-900 to-gray-800"
