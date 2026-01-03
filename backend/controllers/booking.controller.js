@@ -1,31 +1,30 @@
 import { bookSeats } from "../services/booking.service.js";
+import { purchaseTicket } from "../services/ticket.service.js";
 
 export const ticketHandler = async (req, res) => {
   try {
-    const { eventId, seatIds } = req.body;
+    const { eventId, seatIds, walletAddress } = req.body;
 
-    if (!eventId || !seatIds?.length) {
-      return res.status(400).json({
-        success: false,
-        message: "eventId and seatIds are required"
-      });
+    if (!eventId || !walletAddress) {
+      return res.status(400).json({ success: false, message: "Missing eventId or walletAddress" });
     }
 
-    // temporary user (replace with auth later)
-    const userId = req.user?.id ?? "anonymous_user";
+    const userId = req.user?.id || "anonymous_user";
 
-    const result = await bookSeats(userId, eventId, seatIds);
+    // Optional: Check availability logic
+    await bookSeats(userId, eventId, seatIds);
+
+    // Purchase & Mint
+    const result = await purchaseTicket(userId, eventId, walletAddress);
 
     return res.status(200).json({
       success: true,
+      message: "Ticket Minted!",
       data: result
     });
+
   } catch (err) {
     console.error(err);
-
-    return res.status(500).json({
-      success: false,
-      message: err.message || "Booking failed"
-    });
+    return res.status(500).json({ success: false, message: err.message });
   }
 };
