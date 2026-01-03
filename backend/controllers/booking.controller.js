@@ -9,13 +9,17 @@ export const ticketHandler = async (req, res) => {
       return res.status(400).json({ success: false, message: "Missing eventId or walletAddress" });
     }
 
+    // 🔴 FIX: Force address to lowercase immediately
+    // This ensures MongoDB saves "0xabcd" instead of "0xAbCd"
+    const finalWalletAddress = walletAddress.toLowerCase();
+
     const userId = req.user?.id || "anonymous_user";
 
     // Optional: Check availability logic
     await bookSeats(userId, eventId, seatIds);
 
-    // Purchase & Mint
-    const result = await purchaseTicket(userId, eventId, walletAddress);
+    // Purchase & Mint (Using the lowercase address)
+    const result = await purchaseTicket(userId, eventId, finalWalletAddress);
 
     return res.status(200).json({
       success: true,
