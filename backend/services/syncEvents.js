@@ -6,7 +6,7 @@ import { createRequire } from "module";
 
 dotenv.config();
 const require = createRequire(import.meta.url);
-const TicketArtifact = require("../../blockchain/artifacts/contracts/Ticketing.sol/TicketSystem.json");
+const TicketArtifact =require('../abi/TicketSystem.json');
 
 const CONTRACT_ADDRESS = "0x5E3D1C4a40A0039CB69035604f8CE50FA470a780";
 const RPC_URL = process.env.RPC_URL;
