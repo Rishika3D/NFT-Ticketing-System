@@ -142,9 +142,6 @@ npm run dev
 
 * Deploy!
 
-## 🎥 Demo Video 
-
-
 
 ## 📋 License
 
