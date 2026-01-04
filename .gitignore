@@ -1,9 +1,6 @@
 # Node modules
 /node_modules
 
-# Compilation output
-# /dist
-
 # pnpm deploy output
 /bundle
 
@@ -20,4 +17,4 @@
 /coverage
 .env
 
-frontend/node_modules/
+frontend/node_modules
